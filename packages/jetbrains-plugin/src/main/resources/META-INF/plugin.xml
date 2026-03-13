@@ -1,0 +1,65 @@
+<idea-plugin>
+  <id>ai.opencode.plugin</id>
+  <name>OpenCode</name>
+  <version>1.0.0</version>
+  <vendor url="https://opencode.ai">OpenCode</vendor>
+
+  <description><![CDATA[
+    OpenCode AI coding agent inside your JetBrains IDE.
+    Supports context from active file, cursor position, open tabs, and manual code selection.
+  ]]></description>
+
+  <idea-version since-build="241.0"/>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <!-- Services -->
+  <extensions defaultExtensionNs="com.intellij">
+
+    <projectService
+      serviceImplementation="ai.opencode.plugin.server.ServerManager"/>
+
+    <projectService
+      serviceImplementation="ai.opencode.plugin.bridge.BrowserBridge"/>
+
+    <projectService
+      serviceImplementation="ai.opencode.plugin.bridge.IdeContextService"/>
+
+    <toolWindow
+      id="OpenCode"
+      anchor="right"
+      icon="/icons/opencode.svg"
+      factoryClass="ai.opencode.plugin.toolwindow.OpenCodeToolWindowFactory"/>
+
+    <applicationConfigurable
+      parentId="tools"
+      id="ai.opencode.plugin.settings"
+      instance="ai.opencode.plugin.settings.OpenCodeConfigurable"
+      displayName="OpenCode"/>
+
+  </extensions>
+
+  <!-- Actions -->
+  <actions>
+
+    <action
+      id="ai.opencode.AddToContext"
+      class="ai.opencode.plugin.actions.AddToContextAction"
+      text="Add to OpenCode Context"
+      description="Add selected code to the OpenCode chat context">
+      <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="$Copy"/>
+      <keyboard-shortcut keymap="$default" first-keystroke="control alt A"/>
+    </action>
+
+    <action
+      id="ai.opencode.OpenPanel"
+      class="ai.opencode.plugin.actions.OpenPanelAction"
+      text="Open OpenCode"
+      description="Open the OpenCode chat panel">
+      <keyboard-shortcut keymap="$default" first-keystroke="control BACK_SLASH"/>
+      <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta BACK_SLASH"/>
+    </action>
+
+  </actions>
+
+</idea-plugin>

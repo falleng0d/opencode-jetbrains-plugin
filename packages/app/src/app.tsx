@@ -20,6 +20,7 @@ import {
   type JSX,
   lazy,
   onCleanup,
+  onMount,
   type ParentProps,
   Show,
   Suspense,
@@ -43,6 +44,9 @@ import { SettingsProvider } from "@/context/settings"
 import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
+import JetBrainsLayout from "@/pages/jetbrains-layout"
+import { isJetBrains } from "@/env"
+import { initIdeBridge } from "@/context/ide-bridge"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
 
@@ -89,7 +93,13 @@ function MarkedProviderWithNativeParser(props: ParentProps) {
   return <MarkedProvider nativeParser={platform.parseMarkdown}>{props.children}</MarkedProvider>
 }
 
+const ActiveLayout = isJetBrains ? JetBrainsLayout : Layout
+
 function AppShellProviders(props: ParentProps) {
+  onMount(() => {
+    initIdeBridge()
+  })
+
   return (
     <SettingsProvider>
       <PermissionProvider>
@@ -98,7 +108,7 @@ function AppShellProviders(props: ParentProps) {
             <ModelsProvider>
               <CommandProvider>
                 <HighlightsProvider>
-                  <Layout>{props.children}</Layout>
+                  <ActiveLayout>{props.children}</ActiveLayout>
                 </HighlightsProvider>
               </CommandProvider>
             </ModelsProvider>

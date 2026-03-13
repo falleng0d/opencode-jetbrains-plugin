@@ -56,6 +56,9 @@ import { PromptImageAttachments } from "./prompt-input/image-attachments"
 import { PromptDragOverlay } from "./prompt-input/drag-overlay"
 import { promptPlaceholder } from "./prompt-input/placeholder"
 import { ImagePreview } from "@opencode-ai/ui/image-preview"
+import { IdeContextBar } from "./ide-context-bar"
+import { ideContext, removeSelection } from "@/context/ide-bridge"
+import { isJetBrains } from "@/env"
 
 interface PromptInputProps {
   class?: string
@@ -1012,6 +1015,35 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     return true
   }
 
+  // Sync IDE selections (from JetBrains plugin) into prompt context
+  if (isJetBrains) {
+    createEffect(
+      on(
+        () => ideContext.selections.length,
+        () => {
+          for (const sel of ideContext.selections) {
+            const already = prompt.context
+              .items()
+              .some(
+                (item) =>
+                  item.type === "file" &&
+                  item.path === sel.path &&
+                  item.selection?.startLine === sel.startLine &&
+                  item.selection?.endLine === sel.endLine,
+              )
+            if (already) continue
+            prompt.context.add({
+              type: "file",
+              path: sel.path,
+              selection: { startLine: sel.startLine, startChar: 0, endLine: sel.endLine, endChar: 9999 },
+            })
+            removeSelection(sel.id)
+          }
+        },
+      ),
+    )
+  }
+
   const { addAttachment, removeAttachment, handlePaste } = createPromptAttachments({
     editor: () => editorRef,
     isFocused,
@@ -1255,6 +1287,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           onRemove={removeAttachment}
           removeLabel={language.t("prompt.attachment.remove")}
         />
+        <IdeContextBar />
         <div
           class="relative"
           onMouseDown={(e) => {
