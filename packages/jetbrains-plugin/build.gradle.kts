@@ -35,7 +35,13 @@ intellijPlatform {
     }
 }
 
-// Build the webapp before processing resources
+// Build the opencode standalone binary for the current platform
+val buildOpencode by tasks.registering(Exec::class) {
+    workingDir  = rootProject.file("../opencode")
+    commandLine = listOf("bun", "run", "build", "--single")
+}
+
+// Build the webapp with JetBrains target
 val buildWebapp by tasks.registering(Exec::class) {
     workingDir  = rootProject.file("../app")
     commandLine = listOf("bun", "run", "build")
@@ -44,13 +50,19 @@ val buildWebapp by tasks.registering(Exec::class) {
 }
 
 tasks.named("processResources") {
-    dependsOn(buildWebapp)
+    dependsOn(buildOpencode, buildWebapp)
 }
 
-// Copy built webapp into plugin resources
+// Bundle both the opencode binary and the webapp into plugin resources
 tasks.named<Copy>("processResources") {
+    // Webapp
     from("../app/dist") {
         into("webview")
+    }
+    // Opencode binary — pick the linux-x64 build (adjust for other platforms)
+    from("../opencode/dist/opencode-linux-x64/bin/opencode") {
+        into("bin")
+        filePermissions { unix("755") }
     }
 }
 
