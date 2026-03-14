@@ -58,7 +58,7 @@ class BrowserBridge(private val project: Project) : Disposable {
     }
 
     fun load() {
-        val apiPort = project.service<ServerManager>().start()
+        val apiPort = service<ServerManager>().start()
         fileServerPort = startFileServer(apiPort)
         browser.loadURL("http://localhost:$fileServerPort/")
     }
