@@ -3,11 +3,13 @@ import { useNavigate } from "@solidjs/router"
 import { base64Encode } from "@opencode-ai/util/encode"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { useGlobalSync } from "@/context/global-sync"
+import { useLayout } from "@/context/layout"
 import { config } from "@/env"
 
 export default function JetBrainsHome() {
   const sdk = useGlobalSDK()
   const sync = useGlobalSync()
+  const layout = useLayout()
   const nav = useNavigate()
 
   const dir = createMemo(() => config.projectDir ?? "")
@@ -15,6 +17,8 @@ export default function JetBrainsHome() {
   onMount(() => {
     const d = dir()
     if (!d) return
+
+    layout.projects.open(d)
 
     const slug = base64Encode(d)
 
