@@ -4,11 +4,11 @@ import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
-import com.intellij.openapi.editor.CaretListener
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.colors.EditorColorsListener
 import com.intellij.openapi.editor.colors.EditorColorsManager
 import com.intellij.openapi.editor.event.CaretEvent
+import com.intellij.openapi.editor.event.CaretListener
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -19,7 +19,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.TextRange
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.JBColor
-import com.intellij.util.ui.ColorUtil
+import java.awt.Color
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -161,11 +161,22 @@ class IdeContextService(private val project: Project) : Disposable {
 
     private fun sendTheme() {
         val dark   = !JBColor.isBright()
-        val bg     = ColorUtil.toHex(JBColor.background())
-        val fg     = ColorUtil.toHex(JBColor.foreground())
-        val accent = ColorUtil.toHex(JBColor.namedColor("Link.activeForeground", JBColor.BLUE))
-        val border = ColorUtil.toHex(JBColor.namedColor("Component.borderColor", JBColor.GRAY))
-        project.service<BrowserBridge>().sendTheme(dark, "#$bg", "#$fg", "#$accent", "#$border")
+        val bg     = JBColor.background()
+        val fg     = JBColor.foreground()
+        val accent = JBColor.namedColor("Link.activeForeground", JBColor.BLUE)
+        val border = JBColor.namedColor("Component.borderColor", JBColor.GRAY)
+        project.service<BrowserBridge>().sendTheme(
+            dark,
+            colorToHex(bg),
+            colorToHex(fg),
+            colorToHex(accent),
+            colorToHex(border)
+        )
+    }
+
+    private fun colorToHex(c: Color): String {
+        val rgb = c.rgb and 0xFFFFFF
+        return "#${rgb.toString(16).padStart(6, '0')}"
     }
 
     private fun sendProjectInfo() {

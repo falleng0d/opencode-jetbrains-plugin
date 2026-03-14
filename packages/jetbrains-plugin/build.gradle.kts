@@ -1,6 +1,6 @@
 plugins {
     id("org.jetbrains.intellij.platform") version "2.1.0"
-    kotlin("jvm") version "2.0.0"
+    kotlin("jvm") version "2.2.0"
 }
 
 group   = "ai.opencode"
@@ -24,6 +24,7 @@ intellijPlatform {
             sinceBuild = "253"
         }
     }
+    buildSearchableOptions = false
     signing {
         certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
         privateKey        = providers.environmentVariable("PRIVATE_KEY")
