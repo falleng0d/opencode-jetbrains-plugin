@@ -16,7 +16,7 @@
   <!-- Services -->
   <extensions defaultExtensionNs="com.intellij">
 
-    <projectService
+    <applicationService
       serviceImplementation="ai.opencode.plugin.server.ServerManager"/>
 
     <projectService

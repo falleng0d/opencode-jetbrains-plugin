@@ -3,7 +3,6 @@ package ai.opencode.plugin.server
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
-import com.intellij.openapi.project.Project
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.ServerSocket
@@ -11,24 +10,32 @@ import java.net.URI
 
 private val LOG = logger<ServerManager>()
 
-@Service(Service.Level.PROJECT)
-class ServerManager(private val project: Project) : Disposable {
+@Service(Service.Level.APP)
+class ServerManager : Disposable {
 
     private var process: Process? = null
     var port: Int = -1
         private set
 
     fun start(): Int {
-        if (process?.isAlive == true) return port
+        // 1. If our own process is alive, return it
+        if (process?.isAlive == true && port > 0) return port
 
+        // 2. If a singleton is already running, reuse it
+        val existing = readLock()?.takeIf { isHealthy(it.port) }
+        if (existing != null) {
+            port = existing.port
+            return port
+        }
+
+        // 3. Start a new global server
         val bin  = resolvedBin()
-        val cwd  = project.basePath ?: error("Project has no base path")
         port     = freePort()
 
-        LOG.info("Starting opencode binary=$bin port=$port cwd=$cwd")
+        LOG.info("Starting global opencode binary=$bin port=$port")
 
         process = ProcessBuilder(bin, "serve", "--port", "$port")
-            .directory(File(cwd))
+            .directory(File(System.getProperty("user.home")))
             .redirectErrorStream(true)
             .start()
 
@@ -39,12 +46,15 @@ class ServerManager(private val project: Project) : Disposable {
         }.also { it.isDaemon = true }.start()
 
         waitUntilHealthy(port, timeoutMs = 15_000)
+        writeLock(port)
         return port
     }
 
     fun isRunning() = process?.isAlive == true
 
     override fun dispose() {
+        // Do not kill the global server on project close. Only stop if this
+        // process started it and the app is shutting down.
         process?.destroyForcibly()
         process = null
     }
@@ -107,6 +117,46 @@ class ServerManager(private val project: Project) : Disposable {
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private fun freePort(): Int = ServerSocket(0).use { it.localPort }
+
+    private fun lockFile(): File {
+        val dir = File(System.getProperty("user.home"), ".opencode-plugin")
+        dir.mkdirs()
+        return File(dir, "server.json")
+    }
+
+    private data class Lock(val port: Int, val pid: Long)
+
+    private fun readLock(): Lock? {
+        val file = lockFile()
+        if (!file.exists()) return null
+        return runCatching {
+            val text = file.readText()
+            val port = Regex("\"port\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toInt() ?: return null
+            val pid = Regex("\"pid\"\\s*:\\s*(\\d+)").find(text)?.groupValues?.get(1)?.toLong() ?: 0L
+            Lock(port, pid)
+        }.getOrNull()
+    }
+
+    private fun writeLock(port: Int) {
+        val pid = ProcessHandle.current().pid()
+        val text = "{" + "\"port\":" + port + ",\"pid\":" + pid + "}"
+        lockFile().writeText(text)
+    }
+
+    private fun isHealthy(port: Int): Boolean {
+        return try {
+            val conn = URI("http://localhost:$port/").toURL()
+                .openConnection() as HttpURLConnection
+            conn.connectTimeout = 300
+            conn.readTimeout    = 300
+            conn.connect()
+            val code = conn.responseCode
+            conn.disconnect()
+            code > 0
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     private fun waitUntilHealthy(port: Int, timeoutMs: Long) {
         val deadline = System.currentTimeMillis() + timeoutMs
