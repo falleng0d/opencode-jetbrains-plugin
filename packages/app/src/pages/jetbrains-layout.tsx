@@ -1,5 +1,5 @@
-import { ParentProps, createMemo, For, Show } from "solid-js"
-import { useNavigate, useParams } from "@solidjs/router"
+import { ParentProps, createMemo, For, Show, onMount, createEffect, on } from "solid-js"
+import { useNavigate, useParams, useLocation } from "@solidjs/router"
 import { useGlobalSync } from "@/context/global-sync"
 import { useGlobalSDK } from "@/context/global-sdk"
 import { ideContext } from "@/context/ide-bridge"
@@ -12,6 +12,7 @@ export default function JetBrainsLayout(props: ParentProps) {
   const globalSDK = useGlobalSDK()
   const navigate = useNavigate()
   const params = useParams()
+  const location = useLocation()
 
   const dir = createMemo(() => config.projectDir ?? decode64(params.dir) ?? "")
 
@@ -30,6 +31,38 @@ export default function JetBrainsLayout(props: ParentProps) {
     if (!id) return
     navigate(`/${base64Encode(d)}/session/${id}`)
   }
+
+  // Auto-navigate to the project dir on mount, then into the most recent
+  // session (or create one if none exist). Skip if already on a session route.
+  onMount(() => {
+    const d = config.projectDir
+    if (!d) return
+    if (location.pathname !== "/") return
+
+    const slug = base64Encode(d)
+
+    // Wait a tick for globalSync to bootstrap the directory store
+    setTimeout(async () => {
+      const [store] = globalSync.child(d, { bootstrap: true })
+
+      // Give the store a moment to load sessions from the server
+      await new Promise<void>((resolve) => setTimeout(resolve, 800))
+
+      const live = store.session.filter((s) => !s.time.archived)
+      if (live.length > 0) {
+        // Navigate to the most recent session
+        const latest = live
+          .slice()
+          .sort((a, b) => (b.time.updated ?? b.time.created) - (a.time.updated ?? a.time.created))[0]
+        navigate(`/${slug}/session/${latest.id}`, { replace: true })
+      } else {
+        // No sessions yet — create one
+        const res = await globalSDK.client.session.create({ directory: d })
+        const id = res.data?.id
+        if (id) navigate(`/${slug}/session/${id}`, { replace: true })
+      }
+    }, 0)
+  })
 
   return (
     <div class="flex flex-col h-screen overflow-hidden bg-background-base">
