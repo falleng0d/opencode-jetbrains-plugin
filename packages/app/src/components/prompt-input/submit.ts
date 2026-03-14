@@ -1,4 +1,6 @@
 import type { Message, Session } from "@opencode-ai/sdk/v2/client"
+import { ideContext } from "@/context/ide-bridge"
+import { isJetBrains } from "@/env"
 import { showToast } from "@opencode-ai/ui/toast"
 import { base64Encode } from "@opencode-ai/util/encode"
 import { Binary } from "@opencode-ai/util/binary"
@@ -112,6 +114,7 @@ export async function sendFollowupDraft(input: FollowupSendInput) {
     sessionID: input.draft.sessionID,
     messageID,
     sessionDirectory: input.draft.sessionDirectory,
+    ide: isJetBrains ? { activeFile: ideContext.activeFile, line: ideContext.line, tabs: ideContext.tabs } : undefined,
   })
 
   const message: Message = {

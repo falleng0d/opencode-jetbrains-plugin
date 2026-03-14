@@ -1017,28 +1017,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
 
   // Sync IDE selections (from JetBrains plugin) into prompt context
   if (isJetBrains) {
-    // 1. When the active file changes, replace the previous active-file context entry
-    let prevActive: string | null = null
-    createEffect(
-      on(
-        () => ideContext.activeFile,
-        (path) => {
-          // Remove the old active file (whole-file, no selection) if it differs
-          if (prevActive && prevActive !== path) {
-            const old = prompt.context.items().find((i) => i.type === "file" && i.path === prevActive && !i.selection)
-            if (old) prompt.context.remove(old.key)
-          }
-          if (path) {
-            const already = prompt.context.items().some((i) => i.type === "file" && i.path === path && !i.selection)
-            if (!already) prompt.context.add({ type: "file", path })
-            prevActive = path
-          }
-        },
-        { defer: true },
-      ),
-    )
-
-    // 2. Explicit selections (right-click → Add to OpenCode Context)
+    // Explicit selections (right-click → Add to OpenCode Context) → add as file context with line range
     createEffect(
       on(
         () => ideContext.selections.length,

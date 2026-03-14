@@ -19,6 +19,12 @@ type ContextFile = {
   preview?: string
 }
 
+type IdeState = {
+  activeFile: string | null
+  line: number
+  tabs: { path: string; name: string; active: boolean }[]
+}
+
 type BuildRequestPartsInput = {
   prompt: Prompt
   context: ContextFile[]
@@ -27,6 +33,7 @@ type BuildRequestPartsInput = {
   messageID: string
   sessionID: string
   sessionDirectory: string
+  ide?: IdeState
 }
 
 const absolute = (directory: string, path: string) => {
@@ -86,6 +93,26 @@ export function buildRequestParts(input: BuildRequestPartsInput) {
       text: input.text,
     },
   ]
+
+  // Inject IDE context as a lightweight text block — filenames only, no content.
+  // The AI can call read_file if it needs content. This mirrors how Cursor works.
+  if (input.ide && (input.ide.activeFile || input.ide.tabs.length > 0)) {
+    const lines: string[] = ["<ide_context>"]
+    if (input.ide.activeFile) {
+      lines.push(`  Active file: ${input.ide.activeFile}:${input.ide.line}`)
+    }
+    const others = input.ide.tabs.filter((t) => !t.active)
+    if (others.length > 0) {
+      lines.push(`  Open tabs: ${others.map((t) => t.path).join(", ")}`)
+    }
+    lines.push("</ide_context>")
+    requestParts.push({
+      id: Identifier.ascending("part"),
+      type: "text",
+      text: lines.join("\n"),
+      synthetic: true,
+    })
+  }
 
   const files = input.prompt.filter(isFileAttachment).map((attachment) => {
     const path = absolute(input.sessionDirectory, attachment.path)
