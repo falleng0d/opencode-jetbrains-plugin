@@ -49,6 +49,7 @@
       description="Add selected code to the OpenCode chat context">
       <add-to-group group-id="EditorPopupMenu" anchor="after" relative-to-action="$Copy"/>
       <keyboard-shortcut keymap="$default" first-keystroke="control alt A"/>
+      <keyboard-shortcut keymap="Mac OS X" first-keystroke="control alt A"/>
     </action>
 
     <action
@@ -56,6 +57,7 @@
       class="ai.opencode.plugin.actions.OpenPanelAction"
       text="Open OpenCode"
       description="Open the OpenCode chat panel">
+      <keyboard-shortcut keymap="$default" first-keystroke="alt MINUS"/>
       <keyboard-shortcut keymap="$default" first-keystroke="control BACK_SLASH"/>
       <keyboard-shortcut keymap="Mac OS X" first-keystroke="meta BACK_SLASH"/>
     </action>

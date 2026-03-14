@@ -7,6 +7,11 @@ import com.intellij.openapi.wm.ToolWindowManager
 class OpenPanelAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        ToolWindowManager.getInstance(project).getToolWindow("OpenCode")?.activate(null)
+        val tw = ToolWindowManager.getInstance(project).getToolWindow("OpenCode") ?: return
+        if (tw.isVisible) {
+            tw.hide()
+        } else {
+            tw.activate(null)
+        }
     }
 }
