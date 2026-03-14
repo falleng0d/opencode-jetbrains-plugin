@@ -44,9 +44,9 @@ import { SettingsProvider } from "@/context/settings"
 import { TerminalProvider } from "@/context/terminal"
 import DirectoryLayout from "@/pages/directory-layout"
 import Layout from "@/pages/layout"
-import JetBrainsLayout from "@/pages/jetbrains-layout"
 import { isJetBrains } from "@/env"
 import { initIdeBridge } from "@/context/ide-bridge"
+import JetBrainsHome from "@/pages/jetbrains-home"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
 
@@ -54,11 +54,14 @@ const Home = lazy(() => import("@/pages/home"))
 const Session = lazy(() => import("@/pages/session"))
 const Loading = () => <div class="size-full" />
 
-const HomeRoute = () => (
-  <Suspense fallback={<Loading />}>
-    <Home />
-  </Suspense>
-)
+const HomeRoute = () =>
+  isJetBrains ? (
+    <JetBrainsHome />
+  ) : (
+    <Suspense fallback={<Loading />}>
+      <Home />
+    </Suspense>
+  )
 
 const SessionRoute = () => (
   <SessionProviders>
@@ -93,8 +96,6 @@ function MarkedProviderWithNativeParser(props: ParentProps) {
   return <MarkedProvider nativeParser={platform.parseMarkdown}>{props.children}</MarkedProvider>
 }
 
-const ActiveLayout = isJetBrains ? JetBrainsLayout : Layout
-
 function AppShellProviders(props: ParentProps) {
   onMount(() => {
     initIdeBridge()
@@ -108,7 +109,7 @@ function AppShellProviders(props: ParentProps) {
             <ModelsProvider>
               <CommandProvider>
                 <HighlightsProvider>
-                  <ActiveLayout>{props.children}</ActiveLayout>
+                  <Layout>{props.children}</Layout>
                 </HighlightsProvider>
               </CommandProvider>
             </ModelsProvider>
