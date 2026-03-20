@@ -2,7 +2,7 @@
 # build-plugin.sh — builds the OpenCode JetBrains plugin from source
 # Usage: ./build-plugin.sh [--skip-opencode] [--skip-webapp]
 #
-# Output: packages/jetbrains-plugin/build/distributions/opencode-jetbrains-plugin-1.0.0.zip
+# Output: packages/jetbrains-plugin/build/distributions/opencode-jetbrains-plugin.xyz.zip
 
 set -euo pipefail
 
@@ -10,7 +10,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_DIR="$ROOT/packages/jetbrains-plugin"
 OPENCODE_DIR="$ROOT/packages/opencode"
 APP_DIR="$ROOT/packages/app"
-DIST="$PLUGIN_DIR/build/distributions/opencode-jetbrains-plugin-1.0.0.zip"
+VERSION=$(grep -oP 'version\s*=\s*"\K[^"]+' "$PLUGIN_DIR/build.gradle.kts")
+DIST="$PLUGIN_DIR/build/distributions/opencode-jetbrains-plugin-$VERSION.zip"
 
 REQUIRED_BINS=(
   "$OPENCODE_DIR/dist/opencode-windows-arm64/bin/opencode.exe"

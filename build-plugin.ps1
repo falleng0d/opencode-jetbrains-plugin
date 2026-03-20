@@ -10,7 +10,8 @@ $ROOT = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PLUGIN_DIR = Join-Path $ROOT "packages/jetbrains-plugin"
 $OPENCODE_DIR = Join-Path $ROOT "packages/opencode"
 $APP_DIR = Join-Path $ROOT "packages/app"
-$DIST = Join-Path $PLUGIN_DIR "build/distributions/opencode-jetbrains-plugin-1.0.0.zip"
+$VERSION = [regex]::Match((Get-Content (Join-Path $PLUGIN_DIR "build.gradle.kts") -Raw), 'version\s*=\s*"([^"]+)"').Groups[1].Value
+$DIST = Join-Path $PLUGIN_DIR "build/distributions/opencode-jetbrains-plugin-$VERSION.zip"
 $BINARIES = @(
     (Join-Path $OPENCODE_DIR "dist/opencode-windows-arm64/bin/opencode.exe"),
     (Join-Path $OPENCODE_DIR "dist/opencode-windows-x64-baseline/bin/opencode.exe"),
