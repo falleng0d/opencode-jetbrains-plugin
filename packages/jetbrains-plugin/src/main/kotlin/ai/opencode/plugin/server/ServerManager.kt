@@ -1,5 +1,6 @@
 package ai.opencode.plugin.server
 
+import ai.opencode.plugin.util.resource
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.logger
@@ -61,6 +62,47 @@ class ServerManager : Disposable {
 
     // ── binary resolution ────────────────────────────────────────────────────
 
+    private fun isWindows() = System.getProperty("os.name").lowercase().contains("win")
+
+    private fun isMac() = System.getProperty("os.name").lowercase().contains("mac")
+
+    private fun arch() = when (System.getProperty("os.arch").lowercase()) {
+        "amd64", "x86_64" -> "x64"
+        "aarch64", "arm64" -> "arm64"
+        else -> error("Unsupported architecture: ${System.getProperty("os.arch")}")
+    }
+
+    private fun isMusl(): Boolean {
+        if (isWindows() || isMac()) return false
+        if (File("/etc/alpine-release").isFile) return true
+
+        return runCatching {
+            val p = ProcessBuilder("ldd", "--version")
+                .redirectErrorStream(true)
+                .start()
+            val text = p.inputStream.bufferedReader().use { it.readText() }.lowercase()
+            p.waitFor()
+            text.contains("musl")
+        }.getOrDefault(false)
+    }
+
+    private fun bundledNames() = when {
+        isWindows() && arch() == "arm64" -> listOf("opencode-windows-arm64.exe")
+        isWindows() -> listOf("opencode-windows-x64-baseline.exe")
+        isMac() && arch() == "arm64" -> listOf("opencode-darwin-arm64")
+        isMac() -> listOf("opencode-darwin-x64-baseline")
+        arch() == "arm64" && isMusl() -> listOf("opencode-linux-arm64-musl", "opencode-linux-arm64")
+        arch() == "arm64" -> listOf("opencode-linux-arm64", "opencode-linux-arm64-musl")
+        isMusl() -> listOf("opencode-linux-x64-baseline-musl", "opencode-linux-x64-baseline")
+        else -> listOf("opencode-linux-x64-baseline", "opencode-linux-x64-baseline-musl")
+    }
+
+    private fun executableNames() = if (isWindows()) listOf("opencode.exe") else listOf("opencode")
+
+    private fun extractedBinDir() = File(System.getProperty("user.home"), ".opencode-plugin/bin")
+
+    private fun isRunnable(file: File) = file.isFile && (isWindows() || file.canExecute())
+
     /** Returns path to opencode binary, extracting the bundled one if needed. */
     private fun resolvedBin(): String {
         // 1. Check if there's a bundled binary inside the plugin JAR/resources
@@ -69,21 +111,26 @@ class ServerManager : Disposable {
 
         // 2. Fall back to well-known install locations
         val home = System.getProperty("user.home")
-        val candidates = listOf(
-            "$home/.opencode/bin/opencode",
-            "$home/.local/bin/opencode",
-            "/usr/local/bin/opencode",
-        )
+        val candidates = buildList {
+            executableNames().forEach { add(File(extractedBinDir(), it).absolutePath) }
+            executableNames().forEach { add("$home/.opencode/bin/$it") }
+            executableNames().forEach { add("$home/.local/bin/$it") }
+            if (!isWindows()) {
+                add("/usr/local/bin/opencode")
+            }
+        }
         for (p in candidates) {
             val f = File(p)
-            if (f.isFile && f.canExecute()) return f.absolutePath
+            if (isRunnable(f)) return f.absolutePath
         }
 
         // 3. Search PATH (may be truncated in desktop-launched IDE)
         val path = System.getenv("PATH")?.split(File.pathSeparator) ?: emptyList()
         for (dir in path) {
-            val f = File(dir, "opencode")
-            if (f.isFile && f.canExecute()) return f.absolutePath
+            for (name in executableNames()) {
+                val f = File(dir, name)
+                if (isRunnable(f)) return f.absolutePath
+            }
         }
 
         error("opencode binary not found. Cannot start server.")
@@ -91,27 +138,52 @@ class ServerManager : Disposable {
 
     /**
      * Extracts the bundled binary from plugin resources to
-     * ~/.opencode-plugin/bin/opencode and returns its path.
+     * ~/.opencode-plugin/bin and returns the executable path.
      * Returns null if no bundled binary exists in resources.
      */
     private fun extractBundled(): String? {
-        val resource = javaClass.getResourceAsStream("/bin/opencode") ?: return null
+        val dir = extractedBinDir()
+        dir.mkdirs()
 
-        val dest = File(System.getProperty("user.home"), ".opencode-plugin/bin/opencode")
-        dest.parentFile.mkdirs()
+        val exe = File(dir, if (isWindows()) "opencode.exe" else "opencode")
+        for (name in bundledNames()) {
+            val resource = resource("/bin/$name") ?: continue
 
-        // Only re-extract if missing (on reinstall the file is replaced)
-        if (!dest.exists()) {
-            LOG.info("Extracting bundled opencode binary to ${dest.absolutePath}")
+            LOG.info("Extracting bundled opencode binary $name to ${exe.absolutePath}")
             resource.use { input ->
-                dest.outputStream().use { out -> input.copyTo(out) }
+                exe.outputStream().use { out -> input.copyTo(out) }
             }
-            dest.setExecutable(true)
-        } else {
-            resource.close()
+            if (!isWindows()) {
+                exe.setExecutable(true)
+            }
+
+            if (!isWindows()) return exe.absolutePath.takeIf { exe.isFile && exe.length() > 0L }
+
+            val bare = File(dir, "opencode")
+            exe.inputStream().use { input ->
+                bare.outputStream().use { out -> input.copyTo(out) }
+            }
+            return exe.absolutePath.takeIf { exe.isFile && exe.length() > 0L }
         }
 
-        return dest.absolutePath
+        if (exe.isFile && exe.length() > 0L) {
+            return exe.absolutePath
+        }
+
+        runCatching {
+            File(dir, "opencode.exe")
+        }.getOrNull()?.takeIf { it.isFile && it.length() > 0L }?.let {
+            return it.absolutePath
+        }
+
+        runCatching {
+            File(dir, "opencode")
+        }.getOrNull()?.takeIf { it.isFile && it.length() > 0L }?.let {
+            return it.absolutePath
+        }
+
+        LOG.warn("Bundled opencode binary not found in plugin resources from ${javaClass.protectionDomain.codeSource.location}")
+        return null
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

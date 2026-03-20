@@ -1,6 +1,7 @@
 package ai.opencode.plugin.bridge
 
 import ai.opencode.plugin.server.ServerManager
+import ai.opencode.plugin.util.resource
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
@@ -98,7 +99,7 @@ class BrowserBridge(private val project: Project) : Disposable {
             var path = exchange.requestURI.path.trimStart('/')
             if (path.isEmpty() || path == "index.html") path = "index.html"
 
-            val resource = javaClass.getResourceAsStream("/webview/$path")
+            val resource = resource("/webview/$path")
 
             if (resource == null) {
                 val body = "Not found: $path".toByteArray()
