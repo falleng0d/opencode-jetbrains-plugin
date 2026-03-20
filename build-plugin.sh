@@ -12,6 +12,17 @@ OPENCODE_DIR="$ROOT/packages/opencode"
 APP_DIR="$ROOT/packages/app"
 DIST="$PLUGIN_DIR/build/distributions/opencode-jetbrains-plugin-1.0.0.zip"
 
+REQUIRED_BINS=(
+  "$OPENCODE_DIR/dist/opencode-windows-arm64/bin/opencode.exe"
+  "$OPENCODE_DIR/dist/opencode-windows-x64-baseline/bin/opencode.exe"
+  "$OPENCODE_DIR/dist/opencode-darwin-arm64/bin/opencode"
+  "$OPENCODE_DIR/dist/opencode-darwin-x64-baseline/bin/opencode"
+  "$OPENCODE_DIR/dist/opencode-linux-arm64/bin/opencode"
+  "$OPENCODE_DIR/dist/opencode-linux-arm64-musl/bin/opencode"
+  "$OPENCODE_DIR/dist/opencode-linux-x64-baseline/bin/opencode"
+  "$OPENCODE_DIR/dist/opencode-linux-x64-baseline-musl/bin/opencode"
+)
+
 SKIP_OPENCODE=false
 SKIP_WEBAPP=false
 
@@ -38,18 +49,20 @@ BUN="$(command -v bun)"
 echo "  bun  → $BUN ($(bun --version))"
 echo "  java → $(java -version 2>&1 | head -1)"
 
-# ── step 1: build opencode standalone binary ──────────────────────────────────
-BINARY="$OPENCODE_DIR/dist/opencode-linux-x64/bin/opencode"
+check_bins() {
+  for bin in "${REQUIRED_BINS[@]}"; do
+    [ -f "$bin" ] || return 1
+  done
+}
 
 if $SKIP_OPENCODE; then
   warn "Skipping opencode build (--skip-opencode)"
-  [ -f "$BINARY" ] || fatal "Binary not found at $BINARY. Run without --skip-opencode first."
+  check_bins || fatal "Bundled binaries not found. Run without --skip-opencode first."
 else
-  step "Building opencode standalone binary"
+  step "Building opencode standalone binaries"
   cd "$OPENCODE_DIR"
-  bun run build --single
-  [ -f "$BINARY" ] || fatal "Build completed but binary not found at $BINARY"
-  echo "  Binary: $BINARY ($(du -sh "$BINARY" | cut -f1))"
+  bun run build
+  check_bins || fatal "Build completed but required bundled binaries are missing"
 fi
 
 # ── step 2: build webapp ──────────────────────────────────────────────────────
